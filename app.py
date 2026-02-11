@@ -85,18 +85,42 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     # 불필요 칼럼 제거
     df = df.loc[:, ~df.columns.str.startswith("_drop_")]
     
-    # 2) 첫 번째 행이 헤더 텍스트면 제거 (날짜 칼럼이 날짜로 파싱 안 되는 경우)
-    if "날짜" in df.columns and len(df) > 0:
-        first_val = str(df.iloc[0]["날짜"]).strip()
-        if first_val in ["날짜", "일자", "date", "Date", "거래일", "거래일자", "이용일"]:
-            df = df.iloc[1:].reset_index(drop=True)
+    # 2) 헤더/비데이터 행 제거 — 숫자가 아닌 값이 금액 칼럼에 있는 행 전부 삭제
+    if "이용금액" in df.columns:
+        def is_not_number(v):
+            try:
+                float(str(v).replace(",", "").replace("원", "").strip())
+                return False
+            except (ValueError, TypeError):
+                return True
+        mask = df["이용금액"].apply(is_not_number)
+        df = df[~mask].reset_index(drop=True)
     
     # 컬럼명 정리 (공백 제거)
     df.columns = df.columns.str.strip()
     
-    # 날짜 변환
+    # 날짜 변환 — 다양한 포맷 시도
     if "날짜" in df.columns:
-        df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
+        # 먼저 숫자(엑셀 시리얼 날짜) 처리
+        def parse_date(v):
+            s = str(v).strip()
+            # 엑셀 시리얼 넘버 (5자리 숫자)
+            try:
+                num = float(s)
+                if 30000 < num < 60000:
+                    return pd.Timestamp("1899-12-30") + pd.Timedelta(days=int(num))
+            except (ValueError, TypeError):
+                pass
+            # 일반 날짜 문자열
+            for fmt in ["%Y-%m-%d", "%Y.%m.%d", "%Y/%m/%d", "%m/%d/%Y", "%d/%m/%Y",
+                        "%Y년 %m월 %d일", "%Y-%m-%d %H:%M:%S", "%Y.%m.%d %H:%M"]:
+                try:
+                    return pd.to_datetime(s, format=fmt)
+                except (ValueError, TypeError):
+                    continue
+            # fallback
+            return pd.to_datetime(s, errors="coerce")
+        df["날짜"] = df["날짜"].apply(parse_date)
     
     # 금액 컬럼 숫자 변환
     money_cols = ["이용금액", "예상적립 / 할인", "결제원금", "결제 후 잔액"]
