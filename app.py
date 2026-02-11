@@ -268,6 +268,43 @@ if "대분류" in edited_df.columns and "소분류" in edited_df.columns:
 st.session_state.df = edited_df
 df = edited_df
 
+# --- 카테고리 편집 (종속 드롭다운) ---
+if "대분류" in df.columns and "소분류" in df.columns and len(df) > 0:
+    st.markdown("---")
+    st.subheader("🏷️ 카테고리 편집")
+    st.caption("대분류를 선택하면 소분류가 자동으로 바뀝니다.")
+
+    row_options = list(df.index)
+    def fmt_row(i):
+        item = df.at[i, "항목"] if "항목" in df.columns else ""
+        return f"[{i}] {item} — {df.at[i, '대분류']}/{df.at[i, '소분류']}"
+
+    selected = st.selectbox("1️⃣ 행 선택", row_options, format_func=fmt_row, key="row_sel")
+    picked_major = st.selectbox("2️⃣ 대분류", ALL_MAJOR, key="pick_major")
+    sub_options = CATEGORY_TREE.get(picked_major, ["기타"])
+    picked_minor = st.selectbox("3️⃣ 소분류", sub_options, key="pick_minor")
+
+    if st.button("✅ 적용"):
+        st.session_state.df.at[selected, "대분류"] = picked_major
+        st.session_state.df.at[selected, "소분류"] = picked_minor
+        st.toast(f"✅ 행 {selected} → {picked_major} / {picked_minor}")
+        st.rerun()
+
+    with st.expander("📦 일괄 편집"):
+        bulk_rows = st.multiselect("행 선택", row_options, format_func=fmt_row, key="bulk_rows")
+        if bulk_rows:
+            b_major = st.selectbox("대분류", ALL_MAJOR, key="bulk_major")
+            b_sub_options = CATEGORY_TREE.get(b_major, ["기타"])
+            b_minor = st.selectbox("소분류", b_sub_options, key="bulk_minor")
+            if st.button(f"✅ {len(bulk_rows)}건 적용", key="bulk_apply"):
+                for ri in bulk_rows:
+                    st.session_state.df.at[ri, "대분류"] = b_major
+                    st.session_state.df.at[ri, "소분류"] = b_minor
+                st.toast(f"✅ {len(bulk_rows)}건 → {b_major} / {b_minor}")
+                st.rerun()
+
+    df = st.session_state.df
+
 # --- 3. 요약 & 차트 ---
 st.markdown("---")
 st.subheader("📊 분석 결과")
