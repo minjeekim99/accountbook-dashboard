@@ -455,3 +455,34 @@ edited_iphone_df = st.data_editor(
     key="iphone_data_editor"
 )
 st.session_state.iphone_df = edited_iphone_df
+
+# --- 6. 수입 ---
+st.markdown("---")
+st.subheader("💵 수입")
+
+INCOME_CATEGORIES = ["급여", "이자소득", "상여", "투자수익", "처분소득", "부수익", "페이백", "기타 수입"]
+MONTHS = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"]
+
+if "income_df" not in st.session_state:
+    st.session_state.income_df = pd.DataFrame(
+        0, index=INCOME_CATEGORIES, columns=MONTHS
+    )
+    st.session_state.income_df.index.name = "수입 카테고리"
+
+income_config = {}
+for m in MONTHS:
+    income_config[m] = st.column_config.NumberColumn(m, format="%,d", min_value=0)
+
+edited_income = st.data_editor(
+    st.session_state.income_df,
+    column_config=income_config,
+    use_container_width=True,
+    key="income_editor"
+)
+st.session_state.income_df = edited_income
+
+# 수입 합계
+total_income = edited_income.sum().sum()
+monthly_totals = edited_income.sum(axis=0)
+st.markdown(f"**총 수입: ₩{total_income:,.0f}**")
+st.bar_chart(monthly_totals)
