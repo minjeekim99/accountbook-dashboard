@@ -398,3 +398,42 @@ st.download_button(
     file_name="가계부_편집본.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
+# --- 5. 아이폰 결제내역 ---
+st.markdown("---")
+st.subheader("📱 아이폰 결제내역")
+st.caption("iMessage 결제 알림을 자동으로 읽어와 정리합니다. (준비 중)")
+
+# 세션 상태 초기화
+if "iphone_df" not in st.session_state:
+    st.session_state.iphone_df = pd.DataFrame(columns=[
+        "날짜", "결제수단", "항목", "이용금액", "대분류", "소분류",
+        "할부/회차", "적립/할인율", "예상적립 / 할인", "결제원금", "결제 후 잔액"
+    ])
+
+iphone_df = st.session_state.iphone_df
+
+# 테이블 (데이터 섹션과 동일한 형식)
+iphone_config = {}
+if "대분류" in iphone_df.columns:
+    iphone_config["대분류"] = st.column_config.SelectboxColumn(
+        "대분류", options=[""] + ALL_MAJOR, required=False,
+    )
+if "소분류" in iphone_df.columns:
+    iphone_config["소분류"] = st.column_config.SelectboxColumn(
+        "소분류", options=[""] + ALL_MINOR, required=False,
+    )
+for col in ["이용금액", "결제원금", "결제 후 잔액", "예상적립 / 할인"]:
+    if col in iphone_df.columns:
+        iphone_config[col] = st.column_config.NumberColumn(col, format="₩%d")
+if "날짜" in iphone_df.columns:
+    iphone_config["날짜"] = st.column_config.DateColumn("날짜")
+
+edited_iphone_df = st.data_editor(
+    iphone_df,
+    column_config=iphone_config,
+    num_rows="dynamic",
+    use_container_width=True,
+    key="iphone_data_editor"
+)
+st.session_state.iphone_df = edited_iphone_df
