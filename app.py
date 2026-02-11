@@ -160,6 +160,14 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         if c in df.columns:
             df[c] = df[c].fillna("").astype(str).str.strip()
 
+    # 모든 칼럼이 항상 존재하도록 보장
+    for col in DATA_COLUMNS:
+        if col not in df.columns:
+            df[col] = ""
+
+    # 칼럼 순서 정렬
+    df = df[[c for c in DATA_COLUMNS if c in df.columns]]
+
     return df
 
 
