@@ -62,8 +62,34 @@ def categorize_item(text: str) -> tuple[str, str]:
     return ("기타", "기타")
 
 
+COLUMN_RENAME = {
+    0: "날짜",
+    1: "결제수단",
+    2: "항목",
+    3: "이용금액",
+    4: "대분류",
+    5: "소분류",
+    6: "할부/회차",
+    7: "적립/할인율",
+    8: "예상적립 / 할인",
+    9: "결제원금",
+    10: "결제 후 잔액",
+}
+
 def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """데이터프레임 전처리 및 카테고리 자동 분류"""
+    # Unnamed 컬럼이 있으면 위치 기반으로 이름 변경
+    if any("Unnamed" in str(c) for c in df.columns):
+        rename_map = {}
+        for i, col in enumerate(df.columns):
+            if i in COLUMN_RENAME:
+                rename_map[col] = COLUMN_RENAME[i]
+            elif "Unnamed" in str(col):
+                rename_map[col] = f"칼럼_{i}"
+        df = df.rename(columns=rename_map)
+        # 이름 없는 빈 칼럼 제거
+        df = df.loc[:, ~df.columns.str.startswith("칼럼_")]
+    
     # 컬럼명 정리 (공백 제거)
     df.columns = df.columns.str.strip()
     
@@ -74,7 +100,7 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     
     # 금액 컬럼 자동 감지 및 숫자 변환
     for col in df.columns:
-        if any(k in col for k in ["금액", "amount", "Amount", "지출", "수입", "원"]):
+        if any(k in col for k in ["금액", "이용금액", "결제원금", "amount", "Amount", "지출", "수입", "원"]):
             df[col] = pd.to_numeric(df[col].astype(str).str.replace(",", "").str.replace("원", "").str.strip(), errors="coerce")
     
     # 항목/내역 컬럼으로 카테고리 자동 분류
@@ -84,10 +110,18 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             item_col = col
             break
     
-    if item_col and "대분류" not in df.columns:
+    if item_col:
         categories = df[item_col].apply(categorize_item)
-        df["대분류"] = categories.apply(lambda x: x[0])
-        df["소분류"] = categories.apply(lambda x: x[1])
+        if "대분류" not in df.columns:
+            df["대분류"] = categories.apply(lambda x: x[0])
+        else:
+            mask = df["대분류"].isna() | (df["대분류"].astype(str).str.strip() == "")
+            df.loc[mask, "대분류"] = categories[mask].apply(lambda x: x[0])
+        if "소분류" not in df.columns:
+            df["소분류"] = categories.apply(lambda x: x[1])
+        else:
+            mask = df["소분류"].isna() | (df["소분류"].astype(str).str.strip() == "")
+            df.loc[mask, "소분류"] = categories[mask].apply(lambda x: x[1])
     
     return df
 
