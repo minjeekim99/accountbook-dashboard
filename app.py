@@ -90,15 +90,24 @@ def categorize_item(text: str) -> tuple[str, str]:
 
 # 엑셀 헤더 → 표준 칼럼명 매핑
 HEADER_ALIASES = {
+    # 날짜
     "날짜": "날짜", "일자": "날짜", "거래일": "날짜", "거래일자": "날짜", "이용일": "날짜",
-    "이용일자": "날짜", "date": "날짜",
+    "이용일자": "날짜", "지출일": "날짜", "date": "날짜",
+    # 결제수단
     "결제수단": "결제수단", "카드": "결제수단", "카드명": "결제수단", "결제카드": "결제수단",
+    "결제": "결제수단",
+    # 항목
     "항목": "항목", "내역": "항목", "적요": "항목", "사용처": "항목", "가맹점": "항목",
-    "가맹점명": "항목", "내용": "항목", "메모": "항목",
+    "가맹점명": "항목", "내용": "항목", "지출내역": "항목",
+    # 금액
     "이용금액": "이용금액", "금액": "이용금액", "지출금액": "이용금액", "결제금액": "이용금액",
     "이용 금액": "이용금액", "amount": "이용금액",
-    "대분류": "대분류",
-    "소분류": "소분류",
+    # 대분류/소분류
+    "대분류": "대분류", "카테고리": "대분류",
+    "소분류": "소분류", "세부카테고리": "소분류",
+    # 기타
+    "메모": "메모",
+    "지출시간": "지출시간",
     "할부/회차": "할부/회차", "할부": "할부/회차", "회차": "할부/회차",
     "적립/할인율": "적립/할인율", "할인율": "적립/할인율",
     "예상적립 / 할인": "예상적립 / 할인", "예상적립/할인": "예상적립 / 할인",
@@ -112,18 +121,19 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(axis=1, how="all")
     df = df.loc[:, ~df.columns.astype(str).str.match(r"^\s*$")]
 
-    # 1) 첫 번째 행이 헤더인지 확인
-    first_row_is_header = False
-    if len(df) > 0:
-        first_vals = [str(v).strip() for v in df.iloc[0]]
-        matches = sum(1 for v in first_vals if v in HEADER_ALIASES)
-        if matches >= 2:  # 2개 이상 매칭되면 헤더 행으로 판단
-            first_row_is_header = True
+    # 1) 헤더 행 찾기 — 처음 10행 내에서 2개 이상 HEADER_ALIASES에 매칭되는 행
+    header_row_idx = None
+    for i in range(min(10, len(df))):
+        row_vals = [str(v).strip() for v in df.iloc[i] if pd.notna(v)]
+        matches = sum(1 for v in row_vals if v in HEADER_ALIASES)
+        if matches >= 2:
+            header_row_idx = i
+            break
 
-    if first_row_is_header:
-        # 첫 행을 헤더로 사용
-        header_row = [str(v).strip() for v in df.iloc[0]]
-        df = df.iloc[1:].reset_index(drop=True)
+    if header_row_idx is not None:
+        # 헤더 행 사용
+        header_row = [str(v).strip() for v in df.iloc[header_row_idx]]
+        df = df.iloc[header_row_idx + 1:].reset_index(drop=True)
         # 헤더명 → 표준 칼럼명 매핑
         new_cols = []
         used = set()
