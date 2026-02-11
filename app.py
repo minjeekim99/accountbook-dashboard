@@ -239,7 +239,21 @@ df = st.session_state.df
 st.subheader("📋 데이터")
 st.caption("대분류/소분류를 드롭다운에서 선택하세요. 소분류가 대분류에 안 맞으면 자동 교정됩니다.")
 
+PAYMENT_METHODS = [
+    "", "계좌이체", "현금", "롯데카드신용", "온누리상품권체크", "신한카드-더모아",
+    "신한은행", "우리체크카드", "우리카드", "PAYCO", "현대카드", "현아플",
+    "새마을금고", "네이버페이", "카카오뱅크", "모빌리언스카드", "삼성카드",
+    "롯데체크카드", "신한카드", "KB국민카드", "우리카드연세", "우리은행",
+    "케이뱅크", "지역화페", "카카오페이", "롯데카드", "온누리상품권",
+]
+
 column_config = {}
+if "결제수단" in df.columns:
+    existing_pay = [str(v).strip() for v in df["결제수단"].dropna().unique() if str(v).strip()]
+    pay_options = list(dict.fromkeys(PAYMENT_METHODS + existing_pay))
+    column_config["결제수단"] = st.column_config.SelectboxColumn(
+        "결제수단", options=pay_options, required=False,
+    )
 if "대분류" in df.columns:
     column_config["대분류"] = st.column_config.SelectboxColumn(
         "대분류", options=[""] + ALL_MAJOR, required=False,
@@ -415,6 +429,10 @@ iphone_df = st.session_state.iphone_df
 
 # 테이블 (데이터 섹션과 동일한 형식)
 iphone_config = {}
+if "결제수단" in iphone_df.columns:
+    iphone_config["결제수단"] = st.column_config.SelectboxColumn(
+        "결제수단", options=PAYMENT_METHODS, required=False,
+    )
 if "대분류" in iphone_df.columns:
     iphone_config["대분류"] = st.column_config.SelectboxColumn(
         "대분류", options=[""] + ALL_MAJOR, required=False,
