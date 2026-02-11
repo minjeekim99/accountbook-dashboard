@@ -273,13 +273,19 @@ def render_data_table(df, key_prefix, state_key=None):
     """데이터 편집 테이블 렌더"""
     df = calc_actual_spend(df)
 
+    # 위젯 버전 관리: 할인 변경 감지 시 키를 리셋하여 실지출 반영
+    ver_key = f"{key_prefix}_ver"
+    if ver_key not in st.session_state:
+        st.session_state[ver_key] = 0
+    editor_key = f"{key_prefix}_editor_{st.session_state[ver_key]}"
+
     cc = make_column_config(df)
     edited = st.data_editor(
         df, column_config=cc, num_rows="dynamic",
-        use_container_width=True, key=f"{key_prefix}_editor"
+        use_container_width=True, key=editor_key
     )
 
-    # 편집 후 실지출 재계산 (사용자가 실지출을 직접 수정해도 덮어씀)
+    # 편집 후 실지출 재계산
     edited = calc_actual_spend(edited)
 
     # 대분류-소분류 자동 교정
@@ -291,7 +297,14 @@ def render_data_table(df, key_prefix, state_key=None):
                 edited.at[idx, "소분류"] = CATEGORY_TREE[major][0]
 
     if state_key:
+        # 할인 변경 감지 → 위젯 키 버전 올리고 rerun
+        old_discount = df["할인"].tolist() if "할인" in df.columns else []
+        new_discount = edited["할인"].tolist() if "할인" in edited.columns else []
+        needs_refresh = (old_discount != new_discount)
         st.session_state[state_key] = edited
+        if needs_refresh:
+            st.session_state[ver_key] = st.session_state[ver_key] + 1
+            st.rerun()
 
     return edited
 
