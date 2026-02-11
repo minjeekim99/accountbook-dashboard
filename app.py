@@ -260,13 +260,18 @@ def make_column_config(df):
     return cc
 
 
-def render_data_table(df, key_prefix):
-    """데이터 편집 테이블 렌더"""
-    # 표시 전에 실지출 계산
+def calc_actual_spend(df):
+    """실지출 = 결제금액 - 할인 계산"""
     if "결제금액" in df.columns and "할인" in df.columns:
         df["결제금액"] = pd.to_numeric(df["결제금액"], errors="coerce").fillna(0)
         df["할인"] = pd.to_numeric(df["할인"], errors="coerce").fillna(0)
         df["실지출"] = df["결제금액"] - df["할인"]
+    return df
+
+
+def render_data_table(df, key_prefix, state_key=None):
+    """데이터 편집 테이블 렌더"""
+    df = calc_actual_spend(df)
 
     cc = make_column_config(df)
     edited = st.data_editor(
@@ -274,11 +279,9 @@ def render_data_table(df, key_prefix):
         use_container_width=True, key=f"{key_prefix}_editor",
         disabled=["실지출"]
     )
-    # 실지출 자동 계산: 결제금액 - 할인
-    if "결제금액" in edited.columns and "할인" in edited.columns:
-        edited["결제금액"] = pd.to_numeric(edited["결제금액"], errors="coerce").fillna(0)
-        edited["할인"] = pd.to_numeric(edited["할인"], errors="coerce").fillna(0)
-        edited["실지출"] = edited["결제금액"] - edited["할인"]
+
+    # 편집 후 실지출 재계산
+    edited = calc_actual_spend(edited)
 
     # 대분류-소분류 자동 교정
     if "대분류" in edited.columns and "소분류" in edited.columns:
@@ -287,6 +290,11 @@ def render_data_table(df, key_prefix):
             minor = str(edited.at[idx, "소분류"]).strip()
             if major in CATEGORY_TREE and minor and minor not in CATEGORY_TREE[major]:
                 edited.at[idx, "소분류"] = CATEGORY_TREE[major][0]
+
+    # 세션 상태에 저장하여 다음 렌더링에서 실지출 반영
+    if state_key:
+        st.session_state[state_key] = edited
+
     return edited
 
 
@@ -472,8 +480,7 @@ for m in range(1, 13):
         # 지출 데이터 테이블
         month_key = f"month_{m}"
         df = st.session_state[month_key]
-        edited = render_data_table(df, key_prefix=f"m{m}")
-        st.session_state[month_key] = edited
+        edited = render_data_table(df, key_prefix=f"m{m}", state_key=month_key)
         edited = render_category_editor(edited, key_prefix=f"m{m}_cat")
         st.session_state[month_key] = edited
 
@@ -500,8 +507,7 @@ for m in range(1, 13):
 
         iphone_key = f"iphone_{m}"
         iphone_df = st.session_state[iphone_key]
-        edited_iphone = render_data_table(iphone_df, key_prefix=f"ip{m}")
-        st.session_state[iphone_key] = edited_iphone
+        edited_iphone = render_data_table(iphone_df, key_prefix=f"ip{m}", state_key=iphone_key)
 
 
 # ===================== 수입 탭 =====================
