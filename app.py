@@ -253,7 +253,7 @@ if "소분류" in df.columns:
     )
 for col in ["이용금액", "결제원금", "결제 후 잔액", "예상적립 / 할인"]:
     if col in df.columns:
-        column_config[col] = st.column_config.NumberColumn(col, format="%,d")
+        column_config[col] = st.column_config.NumberColumn(col, format="₩%d")
 if "날짜" in df.columns:
     column_config["날짜"] = st.column_config.DateColumn("날짜")
 
@@ -425,7 +425,7 @@ if "소분류" in iphone_df.columns:
     )
 for col in ["이용금액", "결제원금", "결제 후 잔액", "예상적립 / 할인"]:
     if col in iphone_df.columns:
-        iphone_config[col] = st.column_config.NumberColumn(col, format="%,d")
+        iphone_config[col] = st.column_config.NumberColumn(col, format="₩%d")
 if "날짜" in iphone_df.columns:
     iphone_config["날짜"] = st.column_config.DateColumn("날짜")
 
