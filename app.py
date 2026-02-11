@@ -230,8 +230,10 @@ if st.session_state.df is None:
         st.rerun()
 
 if st.session_state.df is None:
-    st.info("👈 사이드바에서 엑셀 파일을 업로드하거나 샘플 데이터로 시작하세요.")
-    st.stop()
+    st.session_state.df = pd.DataFrame(columns=[
+        "날짜", "결제수단", "항목", "이용금액", "대분류", "소분류",
+        "할부/회차", "적립/할인율", "예상적립 / 할인", "결제원금", "결제 후 잔액"
+    ])
 
 df = st.session_state.df
 
@@ -339,66 +341,67 @@ if amount_col is None:
             amount_col = col
             break
 
-if amount_col is None:
-    st.warning("금액 컬럼을 찾을 수 없습니다.")
-    st.stop()
+if amount_col is None or len(df) == 0:
+    st.info("데이터를 업로드하거나 입력하면 분석 결과가 표시됩니다.")
+else:
+    # 총합 카드
+    col1, col2, col3 = st.columns(3)
+    total = df[amount_col].sum()
+    count = len(df)
+    avg = df[amount_col].mean()
 
-# 총합 카드
-col1, col2, col3 = st.columns(3)
-total = df[amount_col].sum()
-count = len(df)
-avg = df[amount_col].mean()
+    col1.metric("💵 총 지출", f"₩{total:,.0f}")
+    col2.metric("📝 건수", f"{count}건")
+    col3.metric("📈 평균", f"₩{avg:,.0f}")
 
-col1.metric("💵 총 지출", f"₩{total:,.0f}")
-col2.metric("📝 건수", f"{count}건")
-col3.metric("📈 평균", f"₩{avg:,.0f}")
+    # 차트 레이아웃
+    chart_col1, chart_col2 = st.columns(2)
 
-# 차트 레이아웃
-chart_col1, chart_col2 = st.columns(2)
+    if "대분류" in df.columns:
+        with chart_col1:
+            st.markdown("#### 대분류별 지출")
+            major_sum = df.groupby("대분류")[amount_col].sum().reset_index()
+            major_sum = major_sum[major_sum[amount_col] > 0]
+            if len(major_sum) > 0:
+                fig1 = px.pie(major_sum, values=amount_col, names="대분류", hole=0.4,
+                              color_discrete_sequence=px.colors.qualitative.Set2)
+                fig1.update_traces(textinfo="label+percent+value",
+                                  texttemplate="%{label}<br>%{percent}<br>₩%{value:,.0f}")
+                st.plotly_chart(fig1, use_container_width=True)
 
-if "대분류" in df.columns:
-    with chart_col1:
-        st.markdown("#### 대분류별 지출")
-        major_sum = df.groupby("대분류")[amount_col].sum().reset_index()
-        major_sum = major_sum[major_sum[amount_col] > 0]
-        fig1 = px.pie(major_sum, values=amount_col, names="대분류", hole=0.4,
-                      color_discrete_sequence=px.colors.qualitative.Set2)
-        fig1.update_traces(textinfo="label+percent+value",
-                          texttemplate="%{label}<br>%{percent}<br>₩%{value:,.0f}")
-        st.plotly_chart(fig1, use_container_width=True)
+    if "소분류" in df.columns:
+        with chart_col2:
+            st.markdown("#### 소분류별 지출")
+            minor_sum = df.groupby("소분류")[amount_col].sum().reset_index()
+            minor_sum = minor_sum[minor_sum[amount_col] > 0].sort_values(amount_col, ascending=True)
+            if len(minor_sum) > 0:
+                fig2 = px.bar(minor_sum, x=amount_col, y="소분류", orientation="h",
+                              color=amount_col, color_continuous_scale="Blues",
+                              text=minor_sum[amount_col].apply(lambda x: f"₩{x:,.0f}"))
+                fig2.update_layout(showlegend=False, coloraxis_showscale=False)
+                st.plotly_chart(fig2, use_container_width=True)
 
-if "소분류" in df.columns:
-    with chart_col2:
-        st.markdown("#### 소분류별 지출")
-        minor_sum = df.groupby("소분류")[amount_col].sum().reset_index()
-        minor_sum = minor_sum[minor_sum[amount_col] > 0].sort_values(amount_col, ascending=True)
-        fig2 = px.bar(minor_sum, x=amount_col, y="소분류", orientation="h",
-                      color=amount_col, color_continuous_scale="Blues",
-                      text=minor_sum[amount_col].apply(lambda x: f"₩{x:,.0f}"))
-        fig2.update_layout(showlegend=False, coloraxis_showscale=False)
-        st.plotly_chart(fig2, use_container_width=True)
+    # 날짜별 추이
+    if "날짜" in df.columns and pd.api.types.is_datetime64_any_dtype(df["날짜"]):
+        valid_dates = df.dropna(subset=["날짜"])
+        if len(valid_dates) > 0:
+            st.markdown("#### 📅 일별 지출 추이")
+            daily = valid_dates.groupby(valid_dates["날짜"].dt.date)[amount_col].sum().reset_index()
+            daily.columns = ["날짜", "금액"]
+            fig3 = px.line(daily, x="날짜", y="금액", markers=True,
+                           text=daily["금액"].apply(lambda x: f"₩{x:,.0f}"))
+            fig3.update_traces(textposition="top center")
+            fig3.update_layout(yaxis_tickformat=",")
+            st.plotly_chart(fig3, use_container_width=True)
 
-# 날짜별 추이
-if "날짜" in df.columns and pd.api.types.is_datetime64_any_dtype(df["날짜"]):
-    valid_dates = df.dropna(subset=["날짜"])
-    if len(valid_dates) > 0:
-        st.markdown("#### 📅 일별 지출 추이")
-        daily = valid_dates.groupby(valid_dates["날짜"].dt.date)[amount_col].sum().reset_index()
-        daily.columns = ["날짜", "금액"]
-        fig3 = px.line(daily, x="날짜", y="금액", markers=True,
-                       text=daily["금액"].apply(lambda x: f"₩{x:,.0f}"))
-        fig3.update_traces(textposition="top center")
-        fig3.update_layout(yaxis_tickformat=",")
-        st.plotly_chart(fig3, use_container_width=True)
-
-# 카테고리별 합계
-if "대분류" in df.columns and "소분류" in df.columns:
-    st.markdown("#### 📑 카테고리별 합계")
-    summary = df.groupby(["대분류", "소분류"])[amount_col].agg(["sum", "count"]).reset_index()
-    summary.columns = ["대분류", "소분류", "합계", "건수"]
-    summary = summary.sort_values("합계", ascending=False)
-    summary["합계"] = summary["합계"].apply(lambda x: f"₩{x:,.0f}")
-    st.dataframe(summary, use_container_width=True, hide_index=True)
+    # 카테고리별 합계
+    if "대분류" in df.columns and "소분류" in df.columns:
+        st.markdown("#### 📑 카테고리별 합계")
+        summary = df.groupby(["대분류", "소분류"])[amount_col].agg(["sum", "count"]).reset_index()
+        summary.columns = ["대분류", "소분류", "합계", "건수"]
+        summary = summary.sort_values("합계", ascending=False)
+        summary["합계"] = summary["합계"].apply(lambda x: f"₩{x:,.0f}")
+        st.dataframe(summary, use_container_width=True, hide_index=True)
 
 # --- 4. 다운로드 ---
 st.markdown("---")
