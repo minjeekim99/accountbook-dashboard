@@ -262,10 +262,17 @@ def make_column_config(df):
 
 def render_data_table(df, key_prefix):
     """데이터 편집 테이블 렌더"""
+    # 표시 전에 실지출 계산
+    if "결제금액" in df.columns and "할인" in df.columns:
+        df["결제금액"] = pd.to_numeric(df["결제금액"], errors="coerce").fillna(0)
+        df["할인"] = pd.to_numeric(df["할인"], errors="coerce").fillna(0)
+        df["실지출"] = df["결제금액"] - df["할인"]
+
     cc = make_column_config(df)
     edited = st.data_editor(
         df, column_config=cc, num_rows="dynamic",
-        use_container_width=True, key=f"{key_prefix}_editor"
+        use_container_width=True, key=f"{key_prefix}_editor",
+        disabled=["실지출"]
     )
     # 실지출 자동 계산: 결제금액 - 할인
     if "결제금액" in edited.columns and "할인" in edited.columns:
