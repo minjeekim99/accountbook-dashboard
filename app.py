@@ -178,6 +178,12 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             mask = df["소분류"].isna() | (df["소분류"].astype(str).str.strip() == "")
             df.loc[mask, "소분류"] = categories[mask].apply(lambda x: x[1])
     
+    # 대분류/소분류를 문자열로 통일 (NaN → 빈 문자열)
+    if "대분류" in df.columns:
+        df["대분류"] = df["대분류"].fillna("").astype(str).str.strip()
+    if "소분류" in df.columns:
+        df["소분류"] = df["소분류"].fillna("").astype(str).str.strip()
+    
     return df
 
 
@@ -236,12 +242,12 @@ st.caption("대분류/소분류를 드롭다운에서 선택하세요. 소분류
 column_config = {}
 if "대분류" in df.columns:
     column_config["대분류"] = st.column_config.SelectboxColumn(
-        "대분류", options=ALL_MAJOR, required=False,
+        "대분류", options=[""] + ALL_MAJOR, required=False,
     )
 if "소분류" in df.columns:
     # 기존 데이터에 있는 소분류 값도 옵션에 포함 (없는 값이 있으면 드롭다운이 안 뜰 수 있음)
     existing_minor = [str(v).strip() for v in df["소분류"].dropna().unique() if str(v).strip()]
-    all_minor_options = list(dict.fromkeys(ALL_MINOR + existing_minor))
+    all_minor_options = list(dict.fromkeys([""] + ALL_MINOR + existing_minor))
     column_config["소분류"] = st.column_config.SelectboxColumn(
         "소분류", options=all_minor_options, required=False,
     )
