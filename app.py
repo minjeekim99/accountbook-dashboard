@@ -482,6 +482,10 @@ for m in range(1, 13):
         # 실지출 계산 버튼
         if st.button("🔄 실지출 계산 (결제금액 - 할인)", key=f"calc_{m}"):
             st.session_state[month_key] = calc_actual_spend(st.session_state[month_key])
+            # 위젯 키 리셋하여 새 데이터로 테이블 재생성
+            old_key = f"m{m}_editor"
+            if old_key in st.session_state:
+                del st.session_state[old_key]
             st.rerun()
 
         # 월 요약
