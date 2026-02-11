@@ -291,9 +291,13 @@ def render_data_table(df, key_prefix, state_key=None):
             if major in CATEGORY_TREE and minor and minor not in CATEGORY_TREE[major]:
                 edited.at[idx, "소분류"] = CATEGORY_TREE[major][0]
 
-    # 세션 상태에 저장하여 다음 렌더링에서 실지출 반영
+    # 세션 상태에 저장 + 실지출 변경 시 강제 rerun
     if state_key:
+        old_실지출 = df["실지출"].tolist() if "실지출" in df.columns else []
+        new_실지출 = edited["실지출"].tolist() if "실지출" in edited.columns else []
         st.session_state[state_key] = edited
+        if old_실지출 != new_실지출:
+            st.rerun()
 
     return edited
 
