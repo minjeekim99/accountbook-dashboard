@@ -469,17 +469,10 @@ if "income_df" not in st.session_state:
         data[m] = [0] * len(INCOME_CATEGORIES)
     st.session_state.income_df = pd.DataFrame(data)
 
-income_config = {
-    "수입 카테고리": st.column_config.TextColumn("수입 카테고리", disabled=True),
-}
-for m in MONTHS:
-    income_config[m] = st.column_config.NumberColumn(m, format="%,d", min_value=0)
-
 edited_income = st.data_editor(
     st.session_state.income_df,
-    column_config=income_config,
+    num_rows="dynamic",
     use_container_width=True,
-    hide_index=True,
     key="income_editor"
 )
 st.session_state.income_df = edited_income
