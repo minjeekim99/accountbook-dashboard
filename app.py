@@ -229,58 +229,44 @@ if st.session_state.df is None:
 
 df = st.session_state.df
 
-# --- 2. 데이터 보기 & 편집 ---
+# --- 2. 데이터 편집 ---
 st.subheader("📋 데이터")
+st.caption("대분류/소분류를 드롭다운에서 선택하세요. 소분류가 대분류에 안 맞으면 자동 교정됩니다.")
 
-# 테이블 표시 (읽기전용)
-display_config = {}
+column_config = {}
+if "대분류" in df.columns:
+    column_config["대분류"] = st.column_config.SelectboxColumn(
+        "대분류", options=ALL_MAJOR, required=True,
+    )
+if "소분류" in df.columns:
+    column_config["소분류"] = st.column_config.SelectboxColumn(
+        "소분류", options=ALL_MINOR, required=True,
+    )
 for col in ["이용금액", "결제원금", "결제 후 잔액", "예상적립 / 할인"]:
     if col in df.columns:
-        display_config[col] = st.column_config.NumberColumn(col, format="₩%d")
-st.dataframe(df, column_config=display_config, use_container_width=True, hide_index=True)
+        column_config[col] = st.column_config.NumberColumn(col, format="₩%d")
+if "날짜" in df.columns:
+    column_config["날짜"] = st.column_config.DateColumn("날짜")
 
-# --- 카테고리 편집 ---
-if "대분류" in df.columns and "소분류" in df.columns and len(df) > 0:
-    st.markdown("---")
-    st.subheader("🏷️ 카테고리 편집")
-    st.caption("1️⃣ 행 선택 → 2️⃣ 대분류 선택 → 3️⃣ 소분류 선택 → 4️⃣ 적용")
+edited_df = st.data_editor(
+    df, column_config=column_config, num_rows="dynamic",
+    use_container_width=True, key="data_editor"
+)
 
-    # 행 라벨
-    row_options = list(df.index)
-    def fmt_row(i):
-        item = df.at[i, "항목"] if "항목" in df.columns else ""
-        return f"[{i}] {item} — {df.at[i, '대분류']}/{df.at[i, '소분류']}"
+# 대분류-소분류 자동 교정: 소분류가 대분류에 안 맞으면 해당 대분류의 첫 번째 소분류로 변경
+if "대분류" in edited_df.columns and "소분류" in edited_df.columns:
+    corrected = False
+    for idx in edited_df.index:
+        major = str(edited_df.at[idx, "대분류"]).strip()
+        minor = str(edited_df.at[idx, "소분류"]).strip()
+        if major in CATEGORY_TREE and minor not in CATEGORY_TREE[major]:
+            edited_df.at[idx, "소분류"] = CATEGORY_TREE[major][0]
+            corrected = True
+    if corrected:
+        st.info("ℹ️ 대분류에 맞지 않는 소분류가 자동 교정되었습니다.")
 
-    selected = st.selectbox("1️⃣ 행 선택", row_options, format_func=fmt_row, key="row_sel")
-
-    # 대분류 — 고정 key, 값이 바뀌면 Streamlit이 자동 rerun
-    picked_major = st.selectbox("2️⃣ 대분류", ALL_MAJOR, key="pick_major")
-
-    # 소분류 — options가 picked_major에 따라 바뀜, 고정 key
-    sub_options = CATEGORY_TREE.get(picked_major, ["기타"])
-    picked_minor = st.selectbox("3️⃣ 소분류", sub_options, key="pick_minor")
-
-    if st.button("4️⃣ ✅ 적용"):
-        st.session_state.df.at[selected, "대분류"] = picked_major
-        st.session_state.df.at[selected, "소분류"] = picked_minor
-        st.toast(f"✅ 행 {selected} → {picked_major} / {picked_minor}")
-        st.rerun()
-
-    # 일괄 편집
-    with st.expander("📦 일괄 편집"):
-        bulk_rows = st.multiselect("행 선택", row_options, format_func=fmt_row, key="bulk_rows")
-        if bulk_rows:
-            b_major = st.selectbox("대분류", ALL_MAJOR, key="bulk_major")
-            b_sub_options = CATEGORY_TREE.get(b_major, ["기타"])
-            b_minor = st.selectbox("소분류", b_sub_options, key="bulk_minor")
-            if st.button(f"✅ {len(bulk_rows)}건 적용", key="bulk_apply"):
-                for ri in bulk_rows:
-                    st.session_state.df.at[ri, "대분류"] = b_major
-                    st.session_state.df.at[ri, "소분류"] = b_minor
-                st.toast(f"✅ {len(bulk_rows)}건 → {b_major} / {b_minor}")
-                st.rerun()
-
-    df = st.session_state.df
+st.session_state.df = edited_df
+df = edited_df
 
 # --- 3. 요약 & 차트 ---
 st.markdown("---")
