@@ -175,6 +175,9 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             s = str(v).strip()
             if not s:
                 return pd.NaT
+            # 괄호 안의 요일 제거: "2026.01.01 (목)" → "2026.01.01"
+            import re
+            s = re.sub(r"\s*\(.*?\)\s*$", "", s).strip()
             try:
                 num = float(s)
                 if 1 < num < 100000:
