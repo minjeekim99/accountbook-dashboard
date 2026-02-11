@@ -9,7 +9,7 @@ st.set_page_config(page_title="가계부 대시보드", page_icon="💰", layout
 
 # --- 카테고리 체계 (대분류 → 소분류 리스트) ---
 CATEGORY_TREE: OrderedDict[str, list[str]] = OrderedDict([
-    ("금융보험비", ["보험료", "금융이자", "수수료", "적금", "상환금", "상품권", "투자비"]),
+    ("금융보험비", ["보험료", "금융이자", "적금", "상환금", "상품권", "투자", "연금"]),
     ("식비", ["식사/간식", "차/커피", "회사점심", "식재료"]),
     ("주거생활비", ["집세/관리비", "통신비", "기타세금", "전자기기"]),
     ("생활용품비", ["생활용품", "더모아충전"]),
@@ -245,9 +245,7 @@ if "대분류" in df.columns:
         required=True,
     )
 if "소분류" in df.columns:
-    column_config["소분류"] = st.column_config.SelectboxColumn(
-        "소분류", options=ALL_MINOR, required=True,
-    )
+    column_config["소분류"] = st.column_config.TextColumn("소분류", disabled=True)
 
 for col in ["이용금액", "결제원금", "결제 후 잔액", "예상적립 / 할인"]:
     if col in df.columns:
