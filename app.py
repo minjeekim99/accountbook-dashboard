@@ -78,29 +78,30 @@ COLUMN_RENAME = {
 
 def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """데이터프레임 전처리 및 카테고리 자동 분류"""
-    # Unnamed 컬럼이 있으면 위치 기반으로 이름 변경
-    if any("Unnamed" in str(c) for c in df.columns):
-        rename_map = {}
-        for i, col in enumerate(df.columns):
-            if i in COLUMN_RENAME:
-                rename_map[col] = COLUMN_RENAME[i]
-            elif "Unnamed" in str(col):
-                rename_map[col] = f"칼럼_{i}"
-        df = df.rename(columns=rename_map)
-        # 이름 없는 빈 칼럼 제거
-        df = df.loc[:, ~df.columns.str.startswith("칼럼_")]
+    # 어떤 엑셀이든 고정 양식으로 변환
+    # 1) 칼럼 수에 맞춰 이름 강제 지정 (최대 11개)
+    new_cols = [COLUMN_RENAME.get(i, f"_drop_{i}") for i in range(len(df.columns))]
+    df.columns = new_cols
+    # 불필요 칼럼 제거
+    df = df.loc[:, ~df.columns.str.startswith("_drop_")]
+    
+    # 2) 첫 번째 행이 헤더 텍스트면 제거 (날짜 칼럼이 날짜로 파싱 안 되는 경우)
+    if "날짜" in df.columns and len(df) > 0:
+        first_val = str(df.iloc[0]["날짜"]).strip()
+        if first_val in ["날짜", "일자", "date", "Date", "거래일", "거래일자", "이용일"]:
+            df = df.iloc[1:].reset_index(drop=True)
     
     # 컬럼명 정리 (공백 제거)
     df.columns = df.columns.str.strip()
     
-    # 날짜 컬럼 자동 감지 및 변환
-    for col in df.columns:
-        if any(k in col for k in ["날짜", "일자", "date", "Date"]):
-            df[col] = pd.to_datetime(df[col], errors="coerce")
+    # 날짜 변환
+    if "날짜" in df.columns:
+        df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
     
-    # 금액 컬럼 자동 감지 및 숫자 변환
-    for col in df.columns:
-        if any(k in col for k in ["금액", "이용금액", "결제원금", "amount", "Amount", "지출", "수입", "원"]):
+    # 금액 컬럼 숫자 변환
+    money_cols = ["이용금액", "예상적립 / 할인", "결제원금", "결제 후 잔액"]
+    for col in money_cols:
+        if col in df.columns:
             df[col] = pd.to_numeric(df[col].astype(str).str.replace(",", "").str.replace("원", "").str.strip(), errors="coerce")
     
     # 항목/내역 컬럼으로 카테고리 자동 분류
@@ -141,7 +142,7 @@ uploaded_file = st.sidebar.file_uploader("엑셀 파일 (.xlsx, .xls)", type=["x
 
 if uploaded_file:
     try:
-        raw_df = pd.read_excel(uploaded_file)
+        raw_df = pd.read_excel(uploaded_file, header=None)
         st.session_state.df = process_dataframe(raw_df)
         st.sidebar.success(f"✅ {len(st.session_state.df)}건 로드 완료")
     except Exception as e:
