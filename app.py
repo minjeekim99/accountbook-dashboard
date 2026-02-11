@@ -324,14 +324,32 @@ if "income_df" not in st.session_state:
 
 st.sidebar.header("📂 엑셀 업로드")
 upload_month = st.sidebar.selectbox("업로드할 월", range(1, 13), format_func=lambda m: f"{m}월")
-uploaded_file = st.sidebar.file_uploader("엑셀 파일 (.xlsx, .xls)", type=["xlsx", "xls"])
+uploaded_files = st.sidebar.file_uploader(
+    "엑셀 파일 (.xlsx, .xls) — 여러 개 가능",
+    type=["xlsx", "xls"],
+    accept_multiple_files=True
+)
 
-if uploaded_file:
+if uploaded_files:
     try:
-        raw_df = pd.read_excel(uploaded_file, header=None)
-        processed = process_dataframe(raw_df)
-        st.session_state[f"month_{upload_month}"] = processed
-        st.sidebar.success(f"✅ {upload_month}월에 {len(processed)}건 로드 완료")
+        all_dfs = []
+        for f in uploaded_files:
+            raw_df = pd.read_excel(f, header=None)
+            processed = process_dataframe(raw_df)
+            all_dfs.append(processed)
+        
+        if len(all_dfs) == 1:
+            combined = all_dfs[0]
+        else:
+            combined = pd.concat(all_dfs, ignore_index=True)
+        
+        # 날짜순 정렬
+        if "날짜" in combined.columns:
+            combined["날짜"] = pd.to_datetime(combined["날짜"], errors="coerce")
+            combined = combined.sort_values("날짜", na_position="last").reset_index(drop=True)
+        
+        st.session_state[f"month_{upload_month}"] = combined
+        st.sidebar.success(f"✅ {upload_month}월에 {len(combined)}건 로드 완료 ({len(uploaded_files)}개 파일 합침)")
     except Exception as e:
         st.sidebar.error(f"파일 읽기 실패: {e}")
 
