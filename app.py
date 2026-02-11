@@ -220,6 +220,18 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = ""
 
+    # 음수 결제금액 처리: -금액 → 결제금액=abs, 할인=abs, 실지출=0
+    if "결제금액" in df.columns:
+        df["결제금액"] = pd.to_numeric(df["결제금액"], errors="coerce").fillna(0)
+        neg_mask = df["결제금액"] < 0
+        df.loc[neg_mask, "할인"] = df.loc[neg_mask, "결제금액"].abs()
+        df.loc[neg_mask, "결제금액"] = df.loc[neg_mask, "결제금액"].abs()
+
+    # 실지출 = 결제금액 - 할인
+    if "결제금액" in df.columns and "할인" in df.columns:
+        df["할인"] = pd.to_numeric(df["할인"], errors="coerce").fillna(0)
+        df["실지출"] = df["결제금액"] - df["할인"]
+
     # 칼럼 순서 정렬
     df = df[[c for c in DATA_COLUMNS if c in df.columns]]
 
@@ -255,6 +267,12 @@ def render_data_table(df, key_prefix):
         df, column_config=cc, num_rows="dynamic",
         use_container_width=True, key=f"{key_prefix}_editor"
     )
+    # 실지출 자동 계산: 결제금액 - 할인
+    if "결제금액" in edited.columns and "할인" in edited.columns:
+        edited["결제금액"] = pd.to_numeric(edited["결제금액"], errors="coerce").fillna(0)
+        edited["할인"] = pd.to_numeric(edited["할인"], errors="coerce").fillna(0)
+        edited["실지출"] = edited["결제금액"] - edited["할인"]
+
     # 대분류-소분류 자동 교정
     if "대분류" in edited.columns and "소분류" in edited.columns:
         for idx in edited.index:
