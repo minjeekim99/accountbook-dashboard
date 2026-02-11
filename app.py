@@ -70,8 +70,7 @@ AUTO_CLASSIFY = {
 
 INCOME_CATEGORIES = ["급여", "이자소득", "상여", "투자수익", "처분소득", "부수익", "페이백", "기타 수입"]
 MONTHS = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"]
-DATA_COLUMNS = ["날짜", "결제수단", "항목", "이용금액", "대분류", "소분류",
-                "할부/회차", "적립/할인율", "예상적립 / 할인", "결제원금", "결제 후 잔액"]
+DATA_COLUMNS = ["날짜", "결제수단", "대분류", "소분류", "지출 내용", "결제금액", "할인", "실지출", "비고"]
 
 # ===================== 유틸 함수 =====================
 
@@ -96,25 +95,20 @@ HEADER_ALIASES = {
     # 결제수단
     "결제수단": "결제수단", "카드": "결제수단", "카드명": "결제수단", "결제카드": "결제수단",
     "결제": "결제수단", "이용카드": "결제수단",
-    # 항목
-    "항목": "항목", "내역": "항목", "적요": "항목", "사용처": "항목", "가맹점": "항목",
-    "가맹점명": "항목", "내용": "항목", "지출내역": "항목", "이용가맹점": "항목",
-    # 금액
-    "이용금액": "이용금액", "금액": "이용금액", "지출금액": "이용금액", "결제금액": "이용금액",
-    "이용 금액": "이용금액", "amount": "이용금액",
+    # 지출 내용
+    "항목": "지출 내용", "내역": "지출 내용", "적요": "지출 내용", "사용처": "지출 내용",
+    "가맹점": "지출 내용", "가맹점명": "지출 내용", "내용": "지출 내용",
+    "지출내역": "지출 내용", "이용가맹점": "지출 내용", "지출 내용": "지출 내용",
+    # 결제금액
+    "이용금액": "결제금액", "금액": "결제금액", "지출금액": "결제금액", "결제금액": "결제금액",
+    "이용 금액": "결제금액", "amount": "결제금액",
     # 대분류/소분류
     "대분류": "대분류", "카테고리": "대분류",
     "소분류": "소분류", "세부카테고리": "소분류",
-    # 기타
-    "메모": "메모",
-    "지출시간": "지출시간",
-    "할부/회차": "할부/회차", "할부": "할부/회차", "회차": "할부/회차",
-    "적립/할인율": "적립/할인율", "할인율": "적립/할인율", "적립/할인율(%)": "적립/할인율",
-    "예상적립 / 할인": "예상적립 / 할인", "예상적립/할인": "예상적립 / 할인",
-    "적립/할인": "예상적립 / 할인",
-    "결제원금": "결제원금", "원금": "결제원금",
-    "결제 후 잔액": "결제 후 잔액", "잔액": "결제 후 잔액", "결제후잔액": "결제 후 잔액",
-    "수수료(이자)": "수수료(이자)",
+    # 할인/실지출/비고
+    "할인": "할인", "예상적립/할인": "할인", "예상적립 / 할인": "할인", "적립/할인": "할인",
+    "실지출": "실지출", "결제원금": "실지출", "원금": "실지출",
+    "비고": "비고", "메모": "비고",
 }
 
 
@@ -154,7 +148,7 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df = df.loc[:, ~df.columns.str.startswith("_drop_")]
     df = df.loc[:, ~df.columns.str.startswith("_orig_")]
 
-    if "이용금액" in df.columns:
+    if "결제금액" in df.columns:
         def is_not_number(v):
             if pd.isna(v):
                 return True
@@ -163,7 +157,7 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
                 return False
             except (ValueError, TypeError):
                 return True
-        df = df[~df["이용금액"].apply(is_not_number)].reset_index(drop=True)
+        df = df[~df["결제금액"].apply(is_not_number)].reset_index(drop=True)
 
     df = df.dropna(how="all").reset_index(drop=True)
 
@@ -195,7 +189,7 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             return pd.to_datetime(s, errors="coerce")
         df["날짜"] = df["날짜"].apply(parse_date)
 
-    money_cols = ["이용금액", "예상적립 / 할인", "결제원금", "결제 후 잔액"]
+    money_cols = ["결제금액", "할인", "실지출"]
     for col in money_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(
@@ -203,7 +197,7 @@ def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
                 errors="coerce"
             )
 
-    item_col = "항목" if "항목" in df.columns else None
+    item_col = "지출 내용" if "지출 내용" in df.columns else None
     if item_col:
         categories = df[item_col].apply(categorize_item)
         if "대분류" not in df.columns:
@@ -246,7 +240,7 @@ def make_column_config(df):
         existing_minor = [str(v).strip() for v in df["소분류"].dropna().unique() if str(v).strip()]
         cc["소분류"] = st.column_config.SelectboxColumn(
             "소분류", options=list(dict.fromkeys([""] + ALL_MINOR + existing_minor)), required=False)
-    for col in ["이용금액", "결제원금", "결제 후 잔액", "예상적립 / 할인"]:
+    for col in ["결제금액", "할인", "실지출"]:
         if col in df.columns:
             cc[col] = st.column_config.NumberColumn(col, format="₩%d")
     if "날짜" in df.columns:
@@ -279,7 +273,7 @@ def render_category_editor(df, key_prefix):
     with st.expander("🏷️ 카테고리 편집 (종속 드롭다운)"):
         row_options = list(df.index)
         def fmt_row(i):
-            item = df.at[i, "항목"] if "항목" in df.columns else ""
+            item = df.at[i, "지출 내용"] if "지출 내용" in df.columns else ""
             return f"[{i}] {item} — {df.at[i, '대분류']}/{df.at[i, '소분류']}"
 
         selected = st.selectbox("행 선택", row_options, format_func=fmt_row, key=f"{key_prefix}_row")
@@ -378,7 +372,7 @@ with tabs[0]:
 
     if all_data:
         combined = pd.concat(all_data, ignore_index=True)
-        amount_col = "이용금액" if "이용금액" in combined.columns else None
+        amount_col = "결제금액" if "결제금액" in combined.columns else None
 
         if amount_col and len(combined) > 0:
             # 메트릭 카드
@@ -459,8 +453,8 @@ for m in range(1, 13):
         st.session_state[month_key] = edited
 
         # 월 요약
-        if len(edited) > 0 and "이용금액" in edited.columns:
-            total = edited["이용금액"].sum()
+        if len(edited) > 0 and "결제금액" in edited.columns:
+            total = edited["결제금액"].sum()
             st.metric(f"{m}월 총 지출", f"₩{total:,.0f}")
 
         # 다운로드
