@@ -280,17 +280,16 @@ if "대분류" in df.columns and "소분류" in df.columns and len(df) > 0:
     if edit_mode == "개별 행 편집":
         selected_row = st.selectbox("행 선택", options=list(df.index), format_func=lambda i: row_labels[i], key="cat_row_select")
 
-        col_a, col_b = st.columns(2)
         current_major = str(df.at[selected_row, "대분류"]).strip()
         major_idx = ALL_MAJOR.index(current_major) if current_major in ALL_MAJOR else 0
 
-        with col_a:
-            new_major = st.selectbox("대분류", options=ALL_MAJOR, index=major_idx, key="cat_major")
-        with col_b:
-            minor_options = CATEGORY_TREE.get(new_major, ["기타"])
-            current_minor = str(df.at[selected_row, "소분류"]).strip()
-            minor_idx = minor_options.index(current_minor) if current_minor in minor_options else 0
-            new_minor = st.selectbox("소분류", options=minor_options, index=minor_idx, key="cat_minor")
+        new_major = st.selectbox("대분류", options=ALL_MAJOR, index=major_idx, key=f"cat_major_{selected_row}")
+
+        # 소분류: key에 대분류 값을 포함시켜서 대분류 변경 시 위젯이 리셋됨
+        minor_options = CATEGORY_TREE.get(new_major, ["시발/멍청비용"])
+        current_minor = str(df.at[selected_row, "소분류"]).strip()
+        minor_idx = minor_options.index(current_minor) if current_minor in minor_options else 0
+        new_minor = st.selectbox("소분류", options=minor_options, index=minor_idx, key=f"cat_minor_{selected_row}_{new_major}")
 
         if st.button("✅ 적용", key="cat_apply"):
             st.session_state.df.at[selected_row, "대분류"] = new_major
@@ -302,12 +301,11 @@ if "대분류" in df.columns and "소분류" in df.columns and len(df) > 0:
         selected_rows = st.multiselect("행 선택 (복수)", options=list(df.index),
                                         format_func=lambda i: row_labels[i], key="cat_rows_multi")
         if selected_rows:
-            col_a, col_b = st.columns(2)
-            with col_a:
-                bulk_major = st.selectbox("대분류", options=ALL_MAJOR, key="cat_bulk_major")
-            with col_b:
-                bulk_minor_options = CATEGORY_TREE.get(bulk_major, ["기타"])
-                bulk_minor = st.selectbox("소분류", options=bulk_minor_options, key="cat_bulk_minor")
+            bulk_major = st.selectbox("대분류", options=ALL_MAJOR, key="cat_bulk_major")
+
+            # 소분류: key에 대분류 포함
+            bulk_minor_options = CATEGORY_TREE.get(bulk_major, ["시발/멍청비용"])
+            bulk_minor = st.selectbox("소분류", options=bulk_minor_options, key=f"cat_bulk_minor_{bulk_major}")
 
             if st.button(f"✅ {len(selected_rows)}건 일괄 적용", key="cat_bulk_apply"):
                 for row_idx in selected_rows:
