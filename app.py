@@ -239,8 +239,11 @@ if "대분류" in df.columns:
         "대분류", options=ALL_MAJOR, required=False,
     )
 if "소분류" in df.columns:
+    # 기존 데이터에 있는 소분류 값도 옵션에 포함 (없는 값이 있으면 드롭다운이 안 뜰 수 있음)
+    existing_minor = [str(v).strip() for v in df["소분류"].dropna().unique() if str(v).strip()]
+    all_minor_options = list(dict.fromkeys(ALL_MINOR + existing_minor))
     column_config["소분류"] = st.column_config.SelectboxColumn(
-        "소분류", options=ALL_MINOR, required=False,
+        "소분류", options=all_minor_options, required=False,
     )
 for col in ["이용금액", "결제원금", "결제 후 잔액", "예상적립 / 할인"]:
     if col in df.columns:
