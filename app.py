@@ -271,16 +271,19 @@ def calc_actual_spend(df):
 
 def render_data_table(df, key_prefix, state_key=None):
     """데이터 편집 테이블 렌더"""
+    # 실지출 칼럼은 에디터에서 제외하고 별도 표시
     df = calc_actual_spend(df)
+    display_cols = [c for c in df.columns if c != "실지출"]
 
     cc = make_column_config(df)
+    cc.pop("실지출", None)
+
     edited = st.data_editor(
-        df, column_config=cc, num_rows="dynamic",
-        use_container_width=True, key=f"{key_prefix}_editor",
-        disabled=["실지출"]
+        df[display_cols], column_config=cc, num_rows="dynamic",
+        use_container_width=True, key=f"{key_prefix}_editor"
     )
 
-    # 편집 후 실지출 재계산
+    # 실지출 재계산
     edited = calc_actual_spend(edited)
 
     # 대분류-소분류 자동 교정
@@ -291,13 +294,18 @@ def render_data_table(df, key_prefix, state_key=None):
             if major in CATEGORY_TREE and minor and minor not in CATEGORY_TREE[major]:
                 edited.at[idx, "소분류"] = CATEGORY_TREE[major][0]
 
-    # 세션 상태에 저장 + 실지출 변경 시 강제 rerun
     if state_key:
-        old_실지출 = df["실지출"].tolist() if "실지출" in df.columns else []
-        new_실지출 = edited["실지출"].tolist() if "실지출" in edited.columns else []
         st.session_state[state_key] = edited
-        if old_실지출 != new_실지출:
-            st.rerun()
+
+    # 실지출 표시 (읽기 전용)
+    if "실지출" in edited.columns and len(edited) > 0:
+        st.caption("📊 실지출 = 결제금액 - 할인")
+        display_df = edited[["지출 내용", "결제금액", "할인", "실지출"]].copy()
+        display_df = display_df[display_df["결제금액"] != 0]
+        if len(display_df) > 0:
+            for col in ["결제금액", "할인", "실지출"]:
+                display_df[col] = display_df[col].apply(lambda x: f"₩{x:,.0f}")
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     return edited
 
