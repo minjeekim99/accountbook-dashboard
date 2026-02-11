@@ -236,11 +236,11 @@ st.caption("대분류/소분류를 드롭다운에서 선택하세요. 소분류
 column_config = {}
 if "대분류" in df.columns:
     column_config["대분류"] = st.column_config.SelectboxColumn(
-        "대분류", options=ALL_MAJOR, required=True,
+        "대분류", options=ALL_MAJOR, required=False,
     )
 if "소분류" in df.columns:
     column_config["소분류"] = st.column_config.SelectboxColumn(
-        "소분류", options=ALL_MINOR, required=True,
+        "소분류", options=ALL_MINOR, required=False,
     )
 for col in ["이용금액", "결제원금", "결제 후 잔액", "예상적립 / 할인"]:
     if col in df.columns:
