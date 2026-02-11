@@ -88,13 +88,60 @@ def categorize_item(text: str) -> tuple[str, str]:
     return ("", "")
 
 
+# 엑셀 헤더 → 표준 칼럼명 매핑
+HEADER_ALIASES = {
+    "날짜": "날짜", "일자": "날짜", "거래일": "날짜", "거래일자": "날짜", "이용일": "날짜",
+    "이용일자": "날짜", "date": "날짜",
+    "결제수단": "결제수단", "카드": "결제수단", "카드명": "결제수단", "결제카드": "결제수단",
+    "항목": "항목", "내역": "항목", "적요": "항목", "사용처": "항목", "가맹점": "항목",
+    "가맹점명": "항목", "내용": "항목", "메모": "항목",
+    "이용금액": "이용금액", "금액": "이용금액", "지출금액": "이용금액", "결제금액": "이용금액",
+    "이용 금액": "이용금액", "amount": "이용금액",
+    "대분류": "대분류",
+    "소분류": "소분류",
+    "할부/회차": "할부/회차", "할부": "할부/회차", "회차": "할부/회차",
+    "적립/할인율": "적립/할인율", "할인율": "적립/할인율",
+    "예상적립 / 할인": "예상적립 / 할인", "예상적립/할인": "예상적립 / 할인",
+    "적립/할인": "예상적립 / 할인",
+    "결제원금": "결제원금", "원금": "결제원금",
+    "결제 후 잔액": "결제 후 잔액", "잔액": "결제 후 잔액", "결제후잔액": "결제 후 잔액",
+}
+
+
 def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(axis=1, how="all")
     df = df.loc[:, ~df.columns.astype(str).str.match(r"^\s*$")]
 
-    new_cols = [COLUMN_RENAME.get(i, f"_drop_{i}") for i in range(len(df.columns))]
-    df.columns = new_cols
+    # 1) 첫 번째 행이 헤더인지 확인
+    first_row_is_header = False
+    if len(df) > 0:
+        first_vals = [str(v).strip() for v in df.iloc[0]]
+        matches = sum(1 for v in first_vals if v in HEADER_ALIASES)
+        if matches >= 2:  # 2개 이상 매칭되면 헤더 행으로 판단
+            first_row_is_header = True
+
+    if first_row_is_header:
+        # 첫 행을 헤더로 사용
+        header_row = [str(v).strip() for v in df.iloc[0]]
+        df = df.iloc[1:].reset_index(drop=True)
+        # 헤더명 → 표준 칼럼명 매핑
+        new_cols = []
+        used = set()
+        for h in header_row:
+            standard = HEADER_ALIASES.get(h)
+            if standard and standard not in used:
+                new_cols.append(standard)
+                used.add(standard)
+            else:
+                new_cols.append(f"_orig_{h}")
+        df.columns = new_cols
+    else:
+        # 위치 기반 매핑 (fallback)
+        new_cols = [COLUMN_RENAME.get(i, f"_drop_{i}") for i in range(len(df.columns))]
+        df.columns = new_cols
+
     df = df.loc[:, ~df.columns.str.startswith("_drop_")]
+    df = df.loc[:, ~df.columns.str.startswith("_orig_")]
 
     if "이용금액" in df.columns:
         def is_not_number(v):
