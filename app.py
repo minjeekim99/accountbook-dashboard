@@ -233,15 +233,22 @@ df = st.session_state.df
 # --- 2. 데이터 편집 ---
 st.subheader("📋 데이터 편집")
 
-# 2-1) 일반 데이터 편집 (대분류/소분류 제외)
-st.caption("셀을 클릭하여 직접 수정할 수 있습니다.")
+# 2-1) 데이터 편집
+st.caption("셀을 클릭하여 직접 수정할 수 있습니다. 대분류는 드롭다운에서 선택하세요.")
 
 column_config = {}
-# 대분류/소분류는 data_editor에서 읽기전용 — 아래 종속 드롭다운에서 편집
 if "대분류" in df.columns:
-    column_config["대분류"] = st.column_config.TextColumn("대분류", disabled=True)
+    column_config["대분류"] = st.column_config.SelectboxColumn(
+        "대분류",
+        options=["식비", "의료미용비(쇼핑)", "교통비", "문화생활", "사업비",
+                 "생활유지비", "건강관리비", "주거생활비", "학비", "사회생활비",
+                 "유흥비", "금융보험비", "기타"],
+        required=True,
+    )
 if "소분류" in df.columns:
-    column_config["소분류"] = st.column_config.TextColumn("소분류", disabled=True)
+    column_config["소분류"] = st.column_config.SelectboxColumn(
+        "소분류", options=ALL_MINOR, required=True,
+    )
 
 for col in ["이용금액", "결제원금", "결제 후 잔액", "예상적립 / 할인"]:
     if col in df.columns:
